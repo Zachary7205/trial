@@ -1,0 +1,68 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the dataset
+data = pd.read_csv('BTS_Border_Crossing_Data.csv')
+
+# Display basic information and first few rows
+print(data.info())
+print(data.head())
+
+  # Convert 'Date' column to datetime
+data['Date'] = pd.to_datetime(data['Date'], format='%b %Y')
+
+# Check for and handle missing values if any
+print(data.isnull().sum())
+
+# Drop rows with missing values or fill them appropriately
+data = data.dropna()
+
+# Ensure data types are correct
+print(data.dtypes)
+
+# Summary statistics
+print(data.describe())
+
+  # Plotting trends over time for different measures
+plt.figure(figsize=(14, 7))
+for measure in data['Measure'].unique():
+    subset = data[data['Measure'] == measure].groupby('Date')['Value'].sum().reset_index()
+    plt.plot(subset['Date'], subset['Value'], label=measure)
+
+plt.title('Monthly Border Crossings by Measure')
+plt.xlabel('Date')
+plt.ylabel('Number of Crossings')
+plt.legend()
+plt.show()
+
+# Identify the busiest ports for each type of crossing
+port_summary = data.groupby(['Port Name', 'Measure'])['Value'].sum().reset_index()
+top_ports = port_summary.sort_values(by='Value', ascending=False).groupby('Measure').head(10)
+print(top_ports)
+
+# Correlation matrix for different measures
+corr_matrix = data.pivot_table(index='Date', columns='Measure', values='Value', aggfunc='sum').corr()
+print(corr_matrix)
+
+# Using a simple time series model for forecasting (e.g., moving average)
+data.set_index('Date', inplace=True)
+data.sort_index(inplace=True)
+
+# Calculate moving average for a specific measure (e.g., trucks)
+trucks_data = data[data['Measure'] == 'Trucks'].resample('M').sum()
+trucks_data['Moving_Avg'] = trucks_data['Value'].rolling(window=12).mean()
+
+# Plotting the moving average
+plt.figure(figsize=(14, 7))
+plt.plot(trucks_data.index, trucks_data['Value'], label='Monthly Trucks Crossings')
+plt.plot(trucks_data.index, trucks_data['Moving_Avg'], label='12-Month Moving Average', color='red')
+plt.title('Monthly Trucks Crossings with Moving Average')
+plt.xlabel('Date')
+plt.ylabel('Number of Trucks Crossings')
+plt.legend()
+plt.show()
+
+# Simple anomaly detection using standard deviation
+trucks_data['Z-Score'] = (trucks_data['Value'] - trucks_data['Value'].mean()) / trucks_data['Value'].std()
+anomalies = trucks_data[trucks_data['Z-Score'].abs() > 2]
+print(anomalies)
